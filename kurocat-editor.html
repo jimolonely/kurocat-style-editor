@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晨晨的Cat 样式编辑器</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+<style>
+  :root{
+    --bg:#0e1014; --panel:#161a21; --panel-2:#1c212b; --border:#2a303c;
+    --text:#e9ecf2; --muted:#94a0b3; --accent:#d2f244; --accent-ink:#141804;
+    --accent-2:#8cb014; --danger:#ff6b81; --ok:#57d98a; --warn:#ffc25c;
+    --radius:12px; --radius-sm:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #1b2230 0%, transparent 60%), var(--bg);
+    color:var(--text);
+    font:14px/1.5 "Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,h3{margin:0;font-weight:650}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  input,select,button{font-family:inherit}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.4;display:block;margin-top:4px}
+
+  /* header */
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px 22px;border-bottom:1px solid var(--border);
+    background:rgba(14,16,20,.82);backdrop-filter:blur(10px);
+    position:sticky;top:0;z-index:20;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:18px}
+  .brand .logo{font-size:26px;filter:drop-shadow(0 0 12px rgba(210,242,68,.35))}
+  .brand h1{font-size:17px;letter-spacing:.3px}
+  .brand p{margin:0;font-size:12px;color:var(--muted)}
+  .conn{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .dot{width:9px;height:9px;border-radius:50%;background:#5b6472;flex:0 0 auto;transition:.2s}
+  .dot.online{background:var(--ok);box-shadow:0 0 0 4px rgba(87,217,138,.14)}
+  .dot.offline{background:var(--danger);box-shadow:0 0 0 4px rgba(255,107,129,.12)}
+  .dot.connecting{background:var(--warn);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  #statusText{font-size:12.5px;color:var(--muted);min-width:64px}
+  #endpoint{
+    width:280px;max-width:46vw;background:var(--panel-2);border:1px solid var(--border);
+    color:var(--text);border-radius:8px;padding:8px 10px;font-size:12.5px;outline:none;
+  }
+  #endpoint:focus{border-color:var(--accent-2)}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:8px 13px;font-size:13px;transition:.15s;white-space:nowrap;
+  }
+  .btn:hover:not(:disabled){border-color:#3d4656;background:#232a36}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.primary{background:linear-gradient(180deg,#e0ff62,#c6e83c);color:#151a04;border-color:#c6e83c;font-weight:650}
+  .btn.primary:hover:not(:disabled){filter:brightness(1.06);background:linear-gradient(180deg,#e0ff62,#c6e83c)}
+  .btn.danger{color:#ffb3be;border-color:#4a2731;background:#2a1920}
+  .btn.danger:hover:not(:disabled){background:#371f28}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:6px 10px;font-size:12.5px;border-radius:7px}
+  .btn.icon{padding:8px 10px}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;padding:14px 22px 0;max-width:1560px;margin:0 auto}
+  .tab{
+    padding:9px 16px;border-radius:9px 9px 0 0;color:var(--muted);font-size:13.5px;
+    border:1px solid transparent;border-bottom:0;
+  }
+  .tab:hover{color:var(--text)}
+  .tab.active{background:var(--panel);color:var(--text);border-color:var(--border)}
+
+  main{max-width:1560px;margin:0 auto;padding:0 22px 30px}
+  .tabpane{display:none}
+  .tabpane.active{display:block}
+
+  .layout{display:grid;grid-template-columns:250px minmax(0,1fr) 300px;gap:16px;align-items:start}
+  @media (max-width:1240px){ .layout{grid-template-columns:220px minmax(0,1fr)} .preview-panel{grid-column:1/-1;position:static} }
+  @media (max-width:860px){ .layout{grid-template-columns:1fr} .cats-panel{max-height:none} }
+
+  .panel{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px;
+  }
+  .cats-panel{position:sticky;top:76px;max-height:calc(100vh - 100px);display:flex;flex-direction:column}
+  .preview-panel{position:sticky;top:76px}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .panel h2{font-size:13px;letter-spacing:.4px;color:var(--muted);text-transform:uppercase;font-weight:650}
+
+  .cat-list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;padding-right:2px}
+  .cat-item{
+    display:flex;align-items:center;gap:10px;text-align:left;padding:9px 10px;border-radius:9px;
+    border:1px solid transparent;transition:.12s;width:100%;
+  }
+  .cat-item:hover{background:var(--panel-2)}
+  .cat-item.selected{background:var(--panel-2);border-color:var(--accent-2)}
+  .cat-item.active{box-shadow:inset 3px 0 0 var(--accent)}
+  .cat-item .emoji{font-size:20px;flex:0 0 26px;text-align:center}
+  .cat-item .info{display:flex;flex-direction:column;min-width:0;flex:1}
+  .cat-item .info strong{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cat-item .info small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .badge{font-size:10.5px;padding:2px 7px;border-radius:99px;background:#2a3140;color:var(--muted);flex:0 0 auto}
+  .badge.live{background:rgba(210,242,68,.14);color:var(--accent)}
+  .empty{color:var(--muted);font-size:12.5px;padding:18px 6px;text-align:center}
+
+  /* editor */
+  .editor-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+    padding:2px 2px 14px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap;
+  }
+  .editor-head h2{font-size:17px}
+  .editor-head p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+  .editor-head .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .check{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
+  .check input{accent-color:var(--accent);width:15px;height:15px}
+  .dirty{color:var(--warn);font-size:12px;white-space:nowrap}
+
+  .card{background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden}
+  .card>.card-title{padding:10px 14px;font-size:12.5px;letter-spacing:.4px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:650}
+  .card-body{padding:13px 14px}
+
+  .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:13px 16px}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .field>label{font-size:12.5px;color:#c3cbd9;font-weight:600}
+  .req{color:var(--accent)}
+  .text-input{
+    width:100%;background:#12161d;border:1px solid var(--border);border-radius:7px;
+    color:var(--text);padding:8px 10px;font-size:13px;outline:none;transition:.12s;
+  }
+  .text-input:focus{border-color:var(--accent-2);box-shadow:0 0 0 2px rgba(140,176,20,.12)}
+  select.text-input{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#8894a6 50%),linear-gradient(135deg,#8894a6 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:30px}
+
+  .color-input{display:flex;align-items:center;gap:6px}
+  .color-input .picker{
+    -webkit-appearance:none;appearance:none;width:34px;height:34px;padding:0;border:1px solid var(--border);
+    border-radius:7px;background:#12161d;cursor:pointer;flex:0 0 34px;overflow:hidden;
+  }
+  .color-input .picker::-webkit-color-swatch-wrapper{padding:3px}
+  .color-input .picker::-webkit-color-swatch{border:0;border-radius:4px}
+  .color-input .picker::-moz-color-swatch{border:0;border-radius:4px}
+  .color-input .color-text{flex:1;min-width:0;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .clear{
+    width:30px;height:34px;flex:0 0 30px;border:1px solid var(--border);border-radius:7px;
+    color:var(--muted);background:#12161d;font-size:16px;line-height:1;
+  }
+  .clear:hover{color:var(--danger);border-color:#4a2731}
+
+  .switches{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 16px}
+  .switch-field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0;cursor:pointer}
+  .switch-field strong{font-size:13px;font-weight:600;display:block}
+  .switch-field .hint{margin-top:2px}
+  .switch{position:relative;width:40px;height:22px;flex:0 0 40px}
+  .switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:2}
+  .switch i{position:absolute;inset:0;border-radius:99px;background:#2b3341;transition:.16s}
+  .switch i::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#aab4c4;transition:.16s}
+  .switch input:checked+i{background:rgba(210,242,68,.28)}
+  .switch input:checked+i::after{transform:translateX(18px);background:var(--accent)}
+  .switch input:focus-visible+i{outline:2px solid var(--accent-2);outline-offset:2px}
+
+  /* spots */
+  .spots-wrap{overflow-x:auto}
+  .spots-head,.spot-row{display:grid;grid-template-columns:92px 62px 62px 62px 62px 62px 118px 74px 30px;gap:6px;align-items:center;min-width:640px}
+  .spots-head{font-size:11px;color:var(--muted);padding:0 2px 6px}
+  .spot-row{margin-bottom:6px}
+  .spot-row .text-input,.spot-row select{padding:6px 8px;font-size:12px}
+  .spot-row .color-text{font-family:ui-monospace,Consolas,monospace}
+  #addSpotBtn{margin-top:6px}
+
+  /* preview */
+  .preview-name{display:flex;align-items:center;gap:10px;margin:10px 0 8px}
+  .preview-name .pv-emoji{font-size:26px}
+  .preview-name .pv-meta{display:flex;flex-direction:column;min-width:0}
+  .preview-name strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .preview-name small{font-size:11.5px;color:var(--muted)}
+  #preview{
+    border:1px solid var(--border);border-radius:10px;
+    background:
+      radial-gradient(ellipse at 50% 25%, rgba(210,242,68,.05), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 23px, rgba(255,255,255,.018) 23px 24px),
+      #10131a;
+    padding:6px;
+  }
+  #preview svg{display:block;width:100%;height:auto}
+  .chips{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--muted)}
+  .chips i{width:18px;height:18px;border-radius:5px;border:1px solid rgba(255,255,255,.15);display:inline-block}
+
+  /* settings */
+  .settings-panel{max-width:980px}
+  .settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .range-row{display:flex;align-items:center;gap:10px}
+  .range-row input[type=range]{flex:1;accent-color:var(--accent)}
+  .range-row output{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--accent);min-width:40px;text-align:right}
+
+  footer{max-width:1560px;margin:0 auto;padding:0 22px 30px;color:var(--muted);font-size:11.5px;line-height:1.8}
+  footer code{background:var(--panel-2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:11px}
+
+  /* toasts */
+  #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:100;max-width:min(380px,90vw)}
+  .toast{
+    background:#1d2430;border:1px solid #333c4b;border-left:3px solid var(--ok);border-radius:9px;
+    padding:10px 14px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.45);
+    animation:toastIn .18s ease-out;transition:opacity .25s, transform .25s;word-break:break-word;
+  }
+  .toast.err{border-left-color:var(--danger)}
+  .toast.warn{border-left-color:var(--warn)}
+  .toast.hide{opacity:0;transform:translateY(6px)}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="logo">🐾</span>
+    <div>
+      <h1>晨晨的样式编辑器</h1>
+      <p>直连本地 MCP · 无需 Agent · 改动实时生效</p>
+    </div>
+  </div>
+  <div class="conn">
+    <span id="statusDot" class="dot offline"></span>
+    <span id="statusText">未连接</span>
+    <input id="endpoint" spellcheck="false" value="http://127.0.0.1:27420/mcp" title="KuroCat MCP 地址">
+    <button class="btn sm" id="connectBtn">连接</button>
+    <button class="btn sm icon" id="refreshBtn" title="重新读取猫咪与设置">⟳</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="style">猫咪样式</button>
+  <button class="tab" data-tab="settings">外观设置</button>
+</nav>
+
+<main>
+  <!-- ============ 样式 ============ -->
+  <section class="tabpane active" id="tab-style">
+    <div class="layout">
+
+      <aside class="panel cats-panel">
+        <div class="panel-head">
+          <h2>猫咪列表</h2>
+          <button class="btn primary sm" id="newCatBtn">＋ 新建</button>
+        </div>
+        <div class="cat-list" id="catList">
+          <div class="empty">正在连接…</div>
+        </div>
+      </aside>
+
+      <section class="panel">
+        <div class="editor-head">
+          <div>
+            <h2 id="editorTitle">编辑猫咪</h2>
+            <p id="editorSub">选择左侧的猫开始编辑</p>
+          </div>
+          <div class="actions">
+            <span class="dirty" id="dirtyFlag" hidden>● 未保存</span>
+            <label class="check"><input type="checkbox" id="activateChk" checked> 保存后立即切换</label>
+            <button class="btn primary" id="saveBtn">保存并应用</button>
+            <button class="btn" id="switchBtn">立即切换</button>
+            <button class="btn" id="copyBtn" title="复制当前配置 JSON">复制 JSON</button>
+            <button class="btn danger" id="deleteBtn">删除</button>
+          </div>
+        </div>
+        <div id="editorBody"></div>
+      </section>
+
+      <aside class="panel preview-panel">
+        <h2>实时预览</h2>
+        <div class="preview-name">
+          <span class="pv-emoji" id="pvEmoji">🐈</span>
+          <div class="pv-meta">
+            <strong id="pvName">未命名</strong>
+            <small id="pvId"></small>
+          </div>
+        </div>
+        <div id="preview"></div>
+        <p class="hint">示意图，仅用于配色参考；桌面上的实际渲染以 KuroCat 引擎为准。3D 模式下手臂色、手臂褶皱、腿部线条等字段不显示，切到 2D 渲染才可见。</p>
+        <div class="chips">
+          <span>按键高亮</span>
+          <i id="chipAccent" title="accentColor"></i>
+          <i id="chipAccentSide" title="accentSideColor"></i>
+        </div>
+      </aside>
+
+    </div>
+  </section>
+
+  <!-- ============ 设置 ============ -->
+  <section class="tabpane" id="tab-settings">
+    <div class="panel settings-panel">
+      <div class="panel-head">
+        <h2>桌宠外观设置</h2>
+        <div class="settings-actions">
+          <button class="btn sm" id="settingsReloadBtn">重新读取</button>
+          <button class="btn primary sm" id="applySettingsBtn">应用设置</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">显示</div>
+        <div class="card-body">
+          <div class="fields">
+            <div class="field">
+              <label for="s-scale">缩放比例（0.2 – 1.5）</label>
+              <div class="range-row">
+                <input type="range" id="s-scale" min="0.2" max="1.5" step="0.01" value="0.6">
+                <output id="s-scale-val">0.60</output>
+              </div>
+            </div>
+            <div class="field">
+              <label for="s-render">渲染模式</label>
+              <select class="text-input" id="s-render">
+                <option value="3d">3D 体积光照</option>
+                <option value="2d">2D Canvas</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="s-collar">项圈颜色（3D）</label>
+              <select class="text-input" id="s-collar">
+                <option value="none">无</option>
+                <option value="red">红色</option>
+                <option value="blue">蓝色</option>
+                <option value="pink">粉色</option>
+                <option value="green">绿色</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="s-headphone">游戏耳机模式</label>
+              <select class="text-input" id="s-headphone">
+                <option value="off">关闭</option>
+                <option value="auto">自动（检测到游戏时）</option>
+                <option value="on">始终佩戴</option>
+              </select>
+            </div>
+          </div>
+          <div class="switches" style="margin-top:12px">
+            <label class="switch-field">
+              <div><strong>按键气泡</strong><span class="hint">按键时在头顶弹出按键名</span></div>
+              <span class="switch"><input type="checkbox" id="s-bubbles"><i></i></span>
+            </label>
+            <label class="switch-field">
+              <div><strong>呼噜音效</strong><span class="hint">抚摸时的音效</span></div>
+              <span class="switch"><input type="checkbox" id="s-sound"><i></i></span>
+            </label>
+            <label class="switch-field">
+              <div><strong>始终置顶</strong><span class="hint">桌宠显示在所有窗口上方</span></div>
+              <span class="switch"><input type="checkbox" id="s-ontop"><i></i></span>
+            </label>
+            <label class="switch-field">
+              <div><strong>点击穿透锁定</strong><span class="hint">开启后鼠标无法点击桌宠</span></div>
+              <span class="switch"><input type="checkbox" id="s-click"><i></i></span>
+            </label>
+            <label class="switch-field">
+              <div><strong>开机自启</strong><span class="hint">随 Windows 自动启动</span></div>
+              <span class="switch"><input type="checkbox" id="s-autostart"><i></i></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">键盘与尾巴</div>
+        <div class="card-body">
+          <div class="fields">
+            <div class="field">
+              <label for="s-kblayout">键盘布局</label>
+              <select class="text-input" id="s-kblayout">
+                <option value="65">65 键</option>
+                <option value="108">108 键</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="s-kborient">键盘朝向</label>
+              <select class="text-input" id="s-kborient">
+                <option value="cat">猫视角（朝向猫）</option>
+                <option value="viewer">观众视角（朝向用户）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="s-tailmode">尾巴敲击模式</label>
+              <select class="text-input" id="s-tailmode">
+                <option value="smart">智能</option>
+                <option value="custom">自定义按键</option>
+                <option value="edge">边缘触发</option>
+                <option value="off">关闭</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="s-tailkeys">自定义尾巴按键</label>
+              <input class="text-input" id="s-tailkeys" placeholder="enter, space, bs, esc" spellcheck="false">
+              <span class="hint">逗号分隔，如 enter, space, r, up；仅「自定义」模式生效</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="hint">修改设置不会改变当前猫的外观配色；切换猫请回到「猫咪样式」页。</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  提示：KuroCat 需保持运行（MCP 端口 27420）。CHROME / EDGE 可直接双击打开本文件；如果浏览器拦截本地连接，可在此目录用任意静态服务器
+  （例如 <code>python -m http.server 8787</code>），再打开 <code>http://localhost:8787/kurocat-editor.html</code>。
+</footer>
+
+<div id="toasts"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ============================================================
+     基础工具
+  ============================================================ */
+  const $ = s => document.querySelector(s);
+  const DEFAULT_ENDPOINT = 'http://127.0.0.1:27420/mcp';
+  const ENDPOINT_KEY = 'kurocat-editor.endpoint';
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function getEndpoint(){
+    try { return localStorage.getItem(ENDPOINT_KEY) || DEFAULT_ENDPOINT; } catch { return DEFAULT_ENDPOINT; }
+  }
+  function saveEndpoint(v){ try { localStorage.setItem(ENDPOINT_KEY, v); } catch {} }
+
+  function sanitizeColor(v, fallback){
+    if (!v) return fallback;
+    if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v)) return v;
+    if (/^(rgb|rgba|hsl|hsla)\([0-9.,%\s/]+\)$/i.test(v)) return v;
+    if (/^[a-zA-Z]{3,20}$/.test(v)) return v;
+    return fallback;
+  }
+  function parseToHex(v){
+    if (!v) return null;
+    const s = v.trim();
+    let m = /^#([0-9a-f]{6})$/i.exec(s);
+    if (m) return '#' + m[1].toLowerCase();
+    m = /^#([0-9a-f]{3})$/i.exec(s);
+    if (m) return '#' + m[1].split('').map(c => c + c).join('').toLowerCase();
+    m = /^#([0-9a-f]{8})$/i.exec(s);
+    if (m) return '#' + m[1].slice(0,6).toLowerCase();
+    m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(s);
+    if (m) {
+      const h = n => Math.max(0, Math.min(255, parseInt(n,10))).toString(16).padStart(2,'0');
+      return '#' + h(m[1]) + h(m[2]) + h(m[3]);
+    }
+    return null;
+  }
+  function shade(hex, amt){
+    const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+    const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+    const b = Math.max(0, Math.min(255, (n & 255) + amt));
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+  function num(el, dflt){
+    const v = parseFloat(el && el.value);
+    return Number.isFinite(v) ? v : dflt;
+  }
+  function toast(msg, type = 'ok'){
+    const box = $('#toasts');
+    const t = document.createElement('div');
+    t.className = 'toast ' + (type === 'ok' ? '' : type);
+    t.textContent = msg;
+    box.appendChild(t);
+    setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, 3400);
+  }
+
+  /* ============================================================
+     MCP 客户端（Streamable HTTP, JSON-RPC 2.0）
+  ============================================================ */
+  let endpoint = getEndpoint();
+  let sessionId = null;
+  let reqId = 1;
+  let serverInfo = null;
+  let connected = false;
+
+  async function mcpPost(payload){
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream'
+      // 注意：不要添加自定义头（如 MCP-Protocol-Version）。
+      // KuroCat 的 CORS 只允许 Content-Type / Accept / Mcp-Session-Id，
+      // 其他自定义头会触发预检失败，浏览器会直接拦截请求。
+    };
+    if (sessionId) headers['Mcp-Session-Id'] = sessionId;
+
+    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
+    const sid = res.headers.get('Mcp-Session-Id');
+    if (sid) sessionId = sid;
+
+    if (res.status === 202 || res.status === 204) return null;
+    if (!res.ok) {
+      let body = '';
+      try { body = await res.text(); } catch {}
+      throw new Error('HTTP ' + res.status + (body ? '：' + body.slice(0, 200) : ''));
+    }
+
+    const ct = (res.headers.get('Content-Type') || '').toLowerCase();
+    if (ct.includes('text/event-stream')) {
+      const text = await res.text();
+      for (const chunk of text.split(/\r?\n\r?\n/)) {
+        const data = chunk.split(/\r?\n/).filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).join('\n');
+        if (!data) continue;
+        try {
+          const msg = JSON.parse(data);
+          if (msg.id === payload.id) return msg;
+        } catch {}
+      }
+      return null;
+    }
+    return await res.json();
+  }
+
+  async function rpc(method, params){
+    const id = reqId++;
+    const msg = { jsonrpc: '2.0', id, method };
+    if (params !== undefined) msg.params = params;
+    const res = await mcpPost(msg);
+    if (!res) throw new Error('服务器未返回响应');
+    if (res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    return res.result;
+  }
+
+  async function notify(method, params){
+    try { await mcpPost({ jsonrpc: '2.0', method, params }); } catch {}
+  }
+
+  async function initSession(){
+    sessionId = null;
+    const result = await rpc('initialize', {
+      protocolVersion: '2024-11-05',
+      capabilities: {},
+      clientInfo: { name: 'kurocat-style-editor', version: '1.0.0' }
+    });
+    serverInfo = result && result.serverInfo ? result.serverInfo : null;
+    await notify('notifications/initialized', {});
+  }
+
+  async function callTool(name, args){
+    const result = await rpc('tools/call', { name, arguments: args || {} });
+    const textItem = (result.content || []).find(c => c.type === 'text');
+    const text = textItem ? textItem.text : '';
+    if (result.isError) throw new Error(text || '工具执行失败：' + name);
+    if (!text) return null;
+    try { return JSON.parse(text); } catch { return text; }
+  }
+
+  /* ============================================================
+     字段元数据
+  ============================================================ */
+  const COLOR_GROUPS = [
+    { title: '毛色 / 花纹', fields: [
+      { key: 'furColor', label: '主毛色', required: true, hint: '基础毛色' },
+      { key: 'furSecondaryColor', label: '次毛色' },
+      { key: 'armColor', label: '手臂色', hint: '仅 2D 渲染可见；3D 模式手臂与身体同色' },
+      { key: 'armCreaseColor', label: '手臂褶皱色', hint: '仅 2D 渲染可见' },
+      { key: 'legLineColor', label: '腿部线条色', hint: '仅 2D 渲染可见' },
+      { key: 'flankColor', label: '侧腹色' },
+      { key: 'bellyBibColor', label: '胸前围兜色' },
+      { key: 'pawColor', label: '爪爪色' },
+      { key: 'pawOutlineColor', label: '爪爪描边色' },
+      { key: 'tailColor', label: '尾巴色' },
+      { key: 'tailTipColor', label: '尾尖色' },
+      { key: 'stripeColor', label: '条纹色', hint: 'tabby 虎斑条纹' },
+      { key: 'calicoPatchColor', label: '三花深色斑块' },
+      { key: 'maskColor', label: '面罩 / 深色区', hint: 'bicolor、siamese、calico 使用' },
+      { key: 'foreheadBridgeColor', label: '额头桥接色', hint: '布偶式双色额头' }
+    ]},
+    { title: '头部细节', fields: [
+      { key: 'earOuterColor', label: '外耳色' },
+      { key: 'earInnerColor', label: '内耳色' },
+      { key: 'earTipColor', label: '耳尖色' },
+      { key: 'earTuftColor', label: '耳簇毛色' },
+      { key: 'noseColor', label: '鼻头色' },
+      { key: 'mouthColor', label: '嘴部色' },
+      { key: 'blushColor', label: '腮红色' },
+      { key: 'whiskerColor', label: '胡须色' },
+      { key: 'outlineColor', label: '轮廓描边色', hint: '浅色毛建议加深色描边' }
+    ]},
+    { title: '眼睛', fields: [
+      { key: 'eyeColorTop', label: '眼睛渐变 · 上' },
+      { key: 'eyeColorBottom', label: '眼睛渐变 · 下' },
+      { key: 'eyeRimColor', label: '眼圈色' },
+      { key: 'pupilColor', label: '瞳孔色' },
+      { key: 'squintColor', label: '眯眼线色' },
+      { key: 'squintGlowColor', label: '眯眼光晕色' }
+    ]},
+    { title: '按键高亮', fields: [
+      { key: 'accentColor', label: '高亮主色', hint: '按键 / 鼠标点击高亮' },
+      { key: 'accentSideColor', label: '高亮暗侧色' }
+    ]}
+  ];
+  const BOOL_FIELDS = [
+    { key: 'eyeCatchlight', label: '眼神光', hint: '眼睛里的白色高光点' },
+    { key: 'tailFluffy', label: '蓬松尾巴' },
+    { key: 'tailStripes', label: '尾巴条纹', hint: '使用 stripeColor 画环纹' }
+  ];
+  const PATTERNS = [
+    ['solid', '纯色 solid'], ['bicolor', '双色面罩 bicolor'], ['tuxedo', '燕尾服 tuxedo'],
+    ['tabby', '虎斑 tabby'], ['calico', '三花 calico'], ['siamese', '暹罗 siamese']
+  ];
+
+  /* ============================================================
+     状态与 DOM 引用
+  ============================================================ */
+  let cats = [];
+  let activeCatId = null;
+  let currentId = null;
+  let dirty = false;
+
+  const colorEls = {};
+  const pickers = {};
+  const boolEls = {};
+  let spotRows = null;
+  let idInput, nameInput, emojiInput, patternSel;
+
+  const catListEl = $('#catList');
+  const editorTitle = $('#editorTitle');
+  const editorSub = $('#editorSub');
+  const dirtyFlag = $('#dirtyFlag');
+  const statusDot = $('#statusDot');
+  const statusText = $('#statusText');
+  const endpointInput = $('#endpoint');
+
+  function markDirty(){
+    dirty = true;
+    dirtyFlag.hidden = false;
+  }
+  function markClean(){
+    dirty = false;
+    dirtyFlag.hidden = true;
+  }
+
+  function setStatus(state, text){
+    statusDot.className = 'dot ' + state;
+    statusText.textContent = text || ({ online: '已连接', offline: '未连接', connecting: '连接中…' }[state] || '');
+  }
+
+  function card(title){
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = '<div class="card-title">' + esc(title) + '</div><div class="card-body"></div>';
+    return c;
+  }
+
+  /* ============================================================
+     编辑器构建
+  ============================================================ */
+  function makeColorField(f){
+    const wrap = document.createElement('div');
+    wrap.className = 'field';
+    wrap.innerHTML = `
+      <label for="c-${f.key}">${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ''}</label>
+      <div class="color-input">
+        <input type="color" class="picker" value="#8b9096" aria-label="${esc(f.label)} 取色器">
+        <input type="text" class="text-input color-text" id="c-${f.key}" placeholder="默认" spellcheck="false" autocomplete="off">
+        <button type="button" class="clear" title="清除（使用默认）">×</button>
+      </div>`;
+    if (f.hint) {
+      const hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = f.hint;
+      wrap.appendChild(hint);
+    }
+    const text = wrap.querySelector('.color-text');
+    const picker = wrap.querySelector('.picker');
+    const clear = wrap.querySelector('.clear');
+    colorEls[f.key] = text;
+    pickers[f.key] = picker;
+
+    text.addEventListener('input', () => {
+      const hex = parseToHex(text.value);
+      if (hex) picker.value = hex;
+      markDirty(); renderPreview();
+    });
+    picker.addEventListener('input', () => {
+      text.value = picker.value;
+      markDirty(); renderPreview();
+    });
+    clear.addEventListener('click', () => {
+      text.value = '';
+      markDirty(); renderPreview();
+    });
+    return wrap;
+  }
+
+  function makeBoolField(f){
+    const wrap = document.createElement('label');
+    wrap.className = 'switch-field';
+    wrap.innerHTML = `
+      <div><strong>${esc(f.label)}</strong>${f.hint ? `<span class="hint">${esc(f.hint)}</span>` : ''}</div>
+      <span class="switch"><input type="checkbox"><i></i></span>`;
+    const cb = wrap.querySelector('input');
+    boolEls[f.key] = cb;
+    cb.addEventListener('change', () => { markDirty(); renderPreview(); });
+    return wrap;
+  }
+
+  function addSpotRow(spot = {}){
+    if (!spotRows) return;
+    const row = document.createElement('div');
+    row.className = 'spot-row';
+    const parts = [['head','头部'],['body','身体'],['leftArm','左臂'],['rightArm','右臂']];
+    row.innerHTML = `
+      <select class="text-input s-part">${parts.map(([v,l]) => `<option value="${v}"${spot.part === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <input type="number" step="0.05" class="text-input s-x" placeholder="0" value="${spot.x ?? ''}">
+      <input type="number" step="0.05" class="text-input s-y" placeholder="0" value="${spot.y ?? ''}">
+      <input type="number" step="1" class="text-input s-rx" placeholder="6" value="${spot.rx ?? ''}">
+      <input type="number" step="1" class="text-input s-ry" placeholder="5" value="${spot.ry ?? ''}">
+      <input type="number" step="5" class="text-input s-rot" placeholder="0" value="${spot.rotation ?? ''}">
+      <input type="text" class="text-input s-color" placeholder="#ffffff" value="${esc(spot.color ?? '')}" spellcheck="false">
+      <input type="number" step="0.05" min="0" max="1" class="text-input s-opacity" placeholder="1" value="${spot.opacity ?? ''}">
+      <button type="button" class="clear s-del" title="删除这个斑点">×</button>`;
+    const sDel = row.querySelector('.s-del');
+    sDel.addEventListener('click', () => { row.remove(); markDirty(); renderPreview(); });
+    row.addEventListener('input', () => { markDirty(); renderPreview(); });
+    row.addEventListener('change', () => { markDirty(); renderPreview(); });
+    spotRows.appendChild(row);
+  }
+
+  function buildEditor(){
+    const body = $('#editorBody');
+    body.innerHTML = '';
+
+    /* 基本设定 */
+    const basic = card('基本设定');
+    const grid = document.createElement('div');
+    grid.className = 'fields';
+    grid.innerHTML = `
+      <div class="field">
+        <label for="f-id">ID <span class="req">*</span></label>
+        <input id="f-id" class="text-input" placeholder="my-cat" spellcheck="false" autocomplete="off">
+        <span class="hint">小写字母 / 数字 / - / _；改 ID 会另存为新猫</span>
+      </div>
+      <div class="field">
+        <label for="f-name">名称 <span class="req">*</span></label>
+        <input id="f-name" class="text-input" placeholder="我的小猫" autocomplete="off">
+        <span class="hint">菜单中显示的名字</span>
+      </div>
+      <div class="field">
+        <label for="f-emoji">表情徽章</label>
+        <input id="f-emoji" class="text-input" placeholder="🐈" maxlength="8" autocomplete="off">
+        <span class="hint">列表中显示的一个 emoji</span>
+      </div>
+      <div class="field">
+        <label for="f-pattern">花纹样式</label>
+        <select id="f-pattern" class="text-input">
+          ${PATTERNS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+        </select>
+        <span class="hint">决定面罩、条纹、斑块等叠加样式</span>
+      </div>`;
+    basic.querySelector('.card-body').appendChild(grid);
+    body.appendChild(basic);
+
+    idInput = $('#f-id'); nameInput = $('#f-name'); emojiInput = $('#f-emoji'); patternSel = $('#f-pattern');
+    [idInput, nameInput, emojiInput].forEach(i => i.addEventListener('input', () => { markDirty(); renderPreview(); }));
+    patternSel.addEventListener('change', () => { markDirty(); renderPreview(); });
+
+    /* 形态开关 */
+    const flags = card('形态开关');
+    const sw = document.createElement('div');
+    sw.className = 'switches';
+    BOOL_FIELDS.forEach(f => sw.appendChild(makeBoolField(f)));
+    flags.querySelector('.card-body').appendChild(sw);
+    body.appendChild(flags);
+
+    /* 颜色分组 */
+    COLOR_GROUPS.forEach(group => {
+      const c = card(group.title);
+      const g = document.createElement('div');
+      g.className = 'fields';
+      group.fields.forEach(f => g.appendChild(makeColorField(f)));
+      c.querySelector('.card-body').appendChild(g);
+      body.appendChild(c);
+    });
+
+    /* 斑点 */
+    const spots = card('专属斑点 / 印记');
+    spots.querySelector('.card-body').innerHTML = `
+      <p class="hint" style="margin:0 0 10px">在头部、身体或手臂上添加独特印记。头部 / 身体的 x、y 为 -1 ~ 1 的归一化坐标；手臂的 x 为 0 ~ 1（肩到爪）。</p>
+      <div class="spots-wrap">
+        <div class="spots-head"><span>部位</span><span>x</span><span>y</span><span>rx</span><span>ry</span><span>旋转</span><span>颜色</span><span>透明度</span><span></span></div>
+        <div id="spotRows"></div>
+      </div>
+      <button type="button" id="addSpotBtn" class="btn ghost sm">＋ 添加斑点</button>`;
+    spotRows = spots.querySelector('#spotRows');
+    spots.querySelector('#addSpotBtn').addEventListener('click', () => {
+      addSpotRow({ part: 'head', color: '#ffffff', opacity: 0.8 });
+      markDirty(); renderPreview();
+    });
+    body.appendChild(spots);
+  }
+
+  /* ============================================================
+     读取 / 填充表单
+  ============================================================ */
+  function readSpotRows(){
+    if (!spotRows) return [];
+    return Array.from(spotRows.querySelectorAll('.spot-row')).map(row => ({
+      part: row.querySelector('.s-part').value,
+      x: num(row.querySelector('.s-x'), 0),
+      y: num(row.querySelector('.s-y'), 0),
+      rx: num(row.querySelector('.s-rx'), 6),
+      ry: num(row.querySelector('.s-ry'), 5),
+      rotation: num(row.querySelector('.s-rot'), 0),
+      color: row.querySelector('.s-color').value.trim(),
+      opacity: Math.max(0, Math.min(1, num(row.querySelector('.s-opacity'), 1)))
+    })).filter(s => s.color);
+  }
+
+  function readCat(){
+    const cat = {
+      id: idInput.value.trim().toLowerCase(),
+      name: nameInput.value.trim(),
+      pattern: patternSel.value
+    };
+    const emoji = emojiInput.value.trim();
+    if (emoji) cat.emoji = emoji;
+    for (const [key, input] of Object.entries(colorEls)) {
+      const v = input.value.trim();
+      if (v) cat[key] = v;
+    }
+    for (const [key, cb] of Object.entries(boolEls)) cat[key] = !!cb.checked;
+    cat.spots = readSpotRows();
+    return cat;
+  }
+
+  function validateCat(cat){
+    if (!cat.id) cat.id = 'my-cat-' + Math.random().toString(36).slice(2, 6);
+    if (!/^[a-z0-9][a-z0-9_-]*$/.test(cat.id)) {
+      throw new Error('ID 只能包含小写字母、数字、- 和 _，且不能以符号开头');
+    }
+    if (!cat.name) cat.name = cat.id;
+    if (!cat.furColor) cat.furColor = '#8b9096';
+    return cat;
+  }
+
+  function loadIntoForm(cat){
+    currentId = cat.id;
+    idInput.value = cat.id || '';
+    nameInput.value = cat.name || '';
+    emojiInput.value = cat.emoji || '';
+    patternSel.value = cat.pattern || 'solid';
+
+    for (const [key, input] of Object.entries(colorEls)) {
+      const v = cat[key] ?? '';
+      input.value = v;
+      const hex = parseToHex(v);
+      pickers[key].value = hex || '#8b9096';
+    }
+    for (const [key, cb] of Object.entries(boolEls)) cb.checked = !!cat[key];
+
+    spotRows.innerHTML = '';
+    (Array.isArray(cat.spots) ? cat.spots : []).forEach(s => addSpotRow(s));
+
+    markClean();
+    updateEditorHead(cat);
+    renderPreview();
+    highlightList();
+  }
+
+  function clearForm(){
+    currentId = null;
+    idInput.value = ''; nameInput.value = ''; emojiInput.value = '';
+    patternSel.value = 'solid';
+    for (const input of Object.values(colorEls)) input.value = '';
+    for (const p of Object.values(pickers)) p.value = '#8b9096';
+    for (const cb of Object.values(boolEls)) cb.checked = false;
+    spotRows.innerHTML = '';
+    markClean();
+    editorTitle.textContent = '新建猫咪';
+    editorSub.textContent = '填写 ID 与主毛色后保存即可创建';
+    renderPreview();
+    highlightList();
+  }
+
+  function updateEditorHead(cat){
+    const isActive = cat.id === activeCatId;
+    editorTitle.textContent = cat.name || cat.id || '编辑猫咪';
+    const bits = ['#' + cat.id];
+    if (cat.builtin) bits.push('内置猫（保存会覆盖为自定义）');
+    else bits.push('自定义猫');
+    if (isActive) bits.push('当前显示中');
+    editorSub.textContent = bits.join(' · ');
+  }
+
+  /* ============================================================
+     预览渲染（简化 SVG）
+  ============================================================ */
+  function renderPreview(){
+    const previewHost = $('#preview');
+    if (!previewHost || !idInput) return;
+
+    const g = k => colorEls[k] ? colorEls[k].value.trim() : '';
+    const has = k => !!g(k);
+
+    const fur = sanitizeColor(g('furColor'), '#8b9096');
+    const fur2 = sanitizeColor(g('furSecondaryColor'), shade(fur, -18));
+    const outline = sanitizeColor(g('outlineColor'), 'rgba(16, 18, 24, 0.55)');
+    const earOuter = sanitizeColor(g('earOuterColor'), fur);
+    const earInner = sanitizeColor(g('earInnerColor'), shade(fur, 40));
+    const earTip = has('earTipColor') ? sanitizeColor(g('earTipColor'), fur) : null;
+    const arm = sanitizeColor(g('armColor'), fur);
+    const paw = sanitizeColor(g('pawColor'), fur);
+    const tail = sanitizeColor(g('tailColor'), fur);
+    const tailTip = has('tailTipColor') ? sanitizeColor(g('tailTipColor'), tail) : null;
+    const nose = sanitizeColor(g('noseColor'), '#e2909c');
+    const mouth = sanitizeColor(g('mouthColor'), 'rgba(18, 20, 26, 0.65)');
+    const blush = has('blushColor') ? sanitizeColor(g('blushColor'), 'rgba(244, 150, 168, 0.8)') : null;
+    const whisk = sanitizeColor(g('whiskerColor'), 'rgba(255, 255, 255, 0.55)');
+    const eyeTop = sanitizeColor(g('eyeColorTop'), '#d4f044');
+    const eyeBottom = sanitizeColor(g('eyeColorBottom'), eyeTop);
+    const eyeRim = has('eyeRimColor') ? sanitizeColor(g('eyeRimColor'), 'rgba(0, 0, 0, 0.35)') : null;
+    const pupil = sanitizeColor(g('pupilColor'), '#121318');
+    const accent = sanitizeColor(g('accentColor'), '#d2f244');
+    const accentSide = sanitizeColor(g('accentSideColor'), '#8cb014');
+    const mask = sanitizeColor(g('maskColor'), shade(fur, -28));
+    const patch = sanitizeColor(g('calicoPatchColor'), '#3c3634');
+    const stripe = sanitizeColor(g('stripeColor'), fur2);
+    const flank = has('flankColor') ? sanitizeColor(g('flankColor'), fur2) : null;
+    const bib = has('bellyBibColor') ? sanitizeColor(g('bellyBibColor'), '#faf9f5') : null;
+    const bridge = has('foreheadBridgeColor') ? sanitizeColor(g('foreheadBridgeColor'), mask) : null;
+
+    const pattern = patternSel ? patternSel.value : 'solid';
+    const catchlight = boolEls.eyeCatchlight ? boolEls.eyeCatchlight.checked : false;
+    const tailFluffy = boolEls.tailFluffy ? boolEls.tailFluffy.checked : false;
+    const tailStripes = boolEls.tailStripes ? boolEls.tailStripes.checked : false;
+
+    const spots = readSpotRows().map(s => ({ ...s, color: sanitizeColor(s.color, '#ffffff') }));
+
+    /* 头部花纹叠加（裁剪在头部内） */
+    let headPattern = '';
+    if (pattern === 'tabby') {
+      headPattern = `
+        <path d="M108 52 L114 74" stroke="${stripe}" stroke-width="5" stroke-linecap="round"/>
+        <path d="M120 46 L120 70" stroke="${stripe}" stroke-width="5" stroke-linecap="round"/>
+        <path d="M132 52 L126 74" stroke="${stripe}" stroke-width="5" stroke-linecap="round"/>
+        <path d="M76 92 L92 96" stroke="${stripe}" stroke-width="4" stroke-linecap="round"/>
+        <path d="M164 92 L148 96" stroke="${stripe}" stroke-width="4" stroke-linecap="round"/>`;
+    } else if (pattern === 'calico') {
+      headPattern = `
+        <ellipse cx="96" cy="70" rx="27" ry="21" fill="${mask}" opacity=".92"/>
+        <ellipse cx="150" cy="120" rx="20" ry="15" fill="${patch}" opacity=".92"/>`;
+    } else if (pattern === 'siamese') {
+      headPattern = `<ellipse cx="120" cy="105" rx="32" ry="26" fill="${mask}" opacity=".95"/>`;
+    } else if (pattern === 'bicolor') {
+      headPattern = `
+        <path d="M120 42 L86 110 L103 116 L120 96 L137 116 L154 110 Z" fill="${mask}" opacity=".95"/>
+        ${bridge ? `<path d="M120 44 L114 92 L126 92 Z" fill="${bridge}" opacity=".9"/>` : ''}`;
+    } else if (pattern === 'tuxedo') {
+      headPattern = `<ellipse cx="120" cy="134" rx="17" ry="11" fill="${bib || '#faf9f5'}" opacity=".95"/>`;
+    }
+
+    /* 身体花纹 */
+    let bodyPattern = '';
+    if (pattern === 'tabby') {
+      bodyPattern = `
+        <path d="M84 174 q9 9 7 22" stroke="${stripe}" stroke-width="4.5" fill="none" stroke-linecap="round" opacity=".85"/>
+        <path d="M96 168 q9 10 7 24" stroke="${stripe}" stroke-width="4.5" fill="none" stroke-linecap="round" opacity=".85"/>
+        <path d="M156 174 q-9 9 -7 22" stroke="${stripe}" stroke-width="4.5" fill="none" stroke-linecap="round" opacity=".85"/>`;
+    } else if (pattern === 'calico') {
+      bodyPattern = `
+        <ellipse cx="93" cy="184" rx="21" ry="16" fill="${mask}" opacity=".9"/>
+        <ellipse cx="149" cy="205" rx="18" ry="14" fill="${patch}" opacity=".9"/>`;
+    } else if (pattern === 'bicolor' && flank) {
+      bodyPattern = `
+        <ellipse cx="80" cy="192" rx="17" ry="30" fill="${flank}" opacity=".92"/>
+        <ellipse cx="160" cy="192" rx="17" ry="30" fill="${flank}" opacity=".92"/>`;
+    }
+    if (bib || pattern === 'tuxedo') {
+      bodyPattern += `<ellipse cx="120" cy="210" rx="31" ry="26" fill="${bib || '#faf9f5'}" opacity=".95"/>`;
+    }
+
+    /* 斑点 */
+    function spotSvg(s){
+      let cx, cy;
+      if (s.part === 'head') {
+        cx = 120 + Math.max(-1, Math.min(1, s.x)) * 42;
+        cy = 96 + Math.max(-1, Math.min(1, s.y)) * 40;
+      } else if (s.part === 'body') {
+        cx = 120 + Math.max(-1, Math.min(1, s.x)) * 46;
+        cy = 196 + Math.max(-1, Math.min(1, s.y)) * 34;
+      } else if (s.part === 'leftArm') {
+        cx = 84 + (Math.max(0, Math.min(1, s.x)) - 0.5) * 20;
+        cy = 218 + Math.max(-30, Math.min(30, s.y));
+      } else {
+        cx = 156 - (Math.max(0, Math.min(1, s.x)) - 0.5) * 20;
+        cy = 218 + Math.max(-30, Math.min(30, s.y));
+      }
+      const rx = Math.max(1, Math.min(40, s.rx));
+      const ry = Math.max(1, Math.min(40, s.ry));
+      return `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${rx}" ry="${ry}" fill="${s.color}" opacity="${s.opacity}" transform="rotate(${s.rotation} ${cx.toFixed(1)} ${cy.toFixed(1)})"/>`;
+    }
+    const headSpots = spots.filter(s => s.part === 'head').map(spotSvg).join('');
+    const bodySpots = spots.filter(s => s.part === 'body').map(spotSvg).join('');
+    const armSpotsL = spots.filter(s => s.part === 'leftArm').map(spotSvg).join('');
+    const armSpotsR = spots.filter(s => s.part === 'rightArm').map(spotSvg).join('');
+
+    const tailW = tailFluffy ? 22 : 15;
+    const tailEndX = 199, tailEndY = 150;
+
+    const eye = cx => `
+      <ellipse cx="${cx}" cy="98" rx="13" ry="14.5" fill="url(#eyeGrad)"${eyeRim ? ` stroke="${eyeRim}" stroke-width="1.5"` : ''}/>
+      <ellipse cx="${cx}" cy="99" rx="4.6" ry="9.6" fill="${pupil}"/>
+      ${catchlight ? `<circle cx="${cx - 4}" cy="92.5" r="2.7" fill="#ffffff" opacity=".92"/>` : ''}`;
+
+    const svg = `
+<svg viewBox="0 0 240 262" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="猫咪配色预览">
+  <defs>
+    <clipPath id="headClip"><circle cx="120" cy="96" r="54"/></clipPath>
+    <clipPath id="bodyClip"><ellipse cx="120" cy="196" rx="56" ry="46"/></clipPath>
+    <linearGradient id="eyeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${eyeTop}"/>
+      <stop offset="100%" stop-color="${eyeBottom}"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="120" cy="246" rx="64" ry="9" fill="rgba(0,0,0,.28)"/>
+
+  <!-- 尾巴 -->
+  <path d="M160 208 C 198 206 214 180 201 150" fill="none" stroke="${tail}" stroke-width="${tailW}" stroke-linecap="round"/>
+  ${tailStripes ? `<path d="M160 208 C 198 206 214 180 201 150" fill="none" stroke="${stripe}" stroke-width="${tailW - 2}" stroke-linecap="round" stroke-dasharray="4 12"/>` : ''}
+  ${tailTip ? `<circle cx="${tailEndX}" cy="${tailEndY}" r="${tailW / 2}" fill="${tailTip}"/>` : ''}
+
+  <!-- 身体 -->
+  <ellipse cx="120" cy="196" rx="56" ry="46" fill="${fur}" stroke="${outline}" stroke-width="2.5"/>
+  <g clip-path="url(#bodyClip)">
+    <ellipse cx="120" cy="196" rx="56" ry="46" fill="${fur2}" opacity=".18"/>
+    ${bodyPattern}
+    ${bodySpots}
+  </g>
+
+  <!-- 手臂 -->
+  <ellipse cx="84" cy="218" rx="12" ry="16" fill="${arm}" stroke="${outline}" stroke-width="2"/>
+  <ellipse cx="156" cy="218" rx="12" ry="16" fill="${arm}" stroke="${outline}" stroke-width="2"/>
+  <g>${armSpotsL}${armSpotsR}</g>
+  <ellipse cx="84" cy="230" rx="12" ry="7" fill="${paw}" stroke="${outline}" stroke-width="1.6"/>
+  <ellipse cx="156" cy="230" rx="12" ry="7" fill="${paw}" stroke="${outline}" stroke-width="1.6"/>
+
+  <!-- 耳朵 -->
+  <polygon points="72,66 74,18 110,46" fill="${earOuter}" stroke="${outline}" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="168,66 166,18 130,46" fill="${earOuter}" stroke="${outline}" stroke-width="2" stroke-linejoin="round"/>
+  ${earTip ? `<polygon points="74,18 68,34 82,34" fill="${earTip}"/><polygon points="166,18 158,34 172,34" fill="${earTip}"/>` : ''}
+  <polygon points="82,58 84,32 102,48" fill="${earInner}"/>
+  <polygon points="158,58 156,32 138,48" fill="${earInner}"/>
+
+  <!-- 头 -->
+  <circle cx="120" cy="96" r="54" fill="${fur}" stroke="${outline}" stroke-width="2.5"/>
+  <g clip-path="url(#headClip)">
+    <circle cx="120" cy="96" r="54" fill="${fur2}" opacity=".12"/>
+    ${headPattern}
+    ${headSpots}
+  </g>
+
+  <!-- 脸 -->
+  ${eye(100)}
+  ${eye(140)}
+  <path d="M112 113 L128 113 L120 120 Z" fill="${nose}"/>
+  <path d="M120 120 Q114 127 108 123 M120 120 Q126 127 132 123" fill="none" stroke="${mouth}" stroke-width="2" stroke-linecap="round"/>
+  ${blush ? `<circle cx="85" cy="116" r="9" fill="${blush}" opacity=".6"/><circle cx="155" cy="116" r="9" fill="${blush}" opacity=".6"/>` : ''}
+
+  <!-- 胡须 -->
+  <g stroke="${whisk}" stroke-width="1.6" stroke-linecap="round">
+    <path d="M66 108 L30 100"/><path d="M66 116 L28 116"/><path d="M66 124 L32 132"/>
+    <path d="M174 108 L210 100"/><path d="M174 116 L212 116"/><path d="M174 124 L208 132"/>
+  </g>
+
+  <!-- 高亮键帽示意 -->
+  <rect x="100" y="250" width="18" height="9" rx="2.5" fill="${accent}"/>
+  <rect x="122" y="250" width="18" height="9" rx="2.5" fill="${accentSide}"/>
+</svg>`;
+
+    previewHost.innerHTML = svg;
+
+    $('#pvEmoji').textContent = emojiInput.value.trim() || '🐈';
+    $('#pvName').textContent = nameInput.value.trim() || idInput.value.trim() || '未命名';
+    $('#pvId').textContent = idInput.value.trim() ? '#' + idInput.value.trim() : '';
+    $('#chipAccent').style.background = accent;
+    $('#chipAccentSide').style.background = accentSide;
+  }
+
+  /* ============================================================
+     猫咪列表
+  ============================================================ */
+  function renderCats(){
+    catListEl.innerHTML = '';
+    if (!cats.length) {
+      catListEl.innerHTML = '<div class="empty">没有读取到猫咪</div>';
+      return;
+    }
+    cats.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cat-item' + (cat.id === currentId ? ' selected' : '') + (cat.id === activeCatId ? ' active' : '');
+      btn.title = '点击编辑';
+      btn.innerHTML = `
+        <span class="emoji">${esc(cat.emoji || '🐈')}</span>
+        <span class="info"><strong>${esc(cat.name || cat.id)}</strong><small>#${esc(cat.id)}${cat.builtin ? ' · 内置' : ''}</small></span>
+        ${cat.id === activeCatId ? '<span class="badge live">当前</span>' : ''}`;
+      btn.addEventListener('click', () => loadIntoForm(cat));
+      catListEl.appendChild(btn);
+    });
+  }
+
+  function highlightList(){
+    renderCats();
+  }
+
+  /* ============================================================
+     设置
+  ============================================================ */
+  function fillSettings(s){
+    if (!s) return;
+    const scale = $('#s-scale');
+    if (s.scale != null) {
+      scale.value = Math.max(0.2, Math.min(1.5, Number(s.scale)));
+      $('#s-scale-val').textContent = Number(scale.value).toFixed(2);
+    }
+    if (s.renderMode) $('#s-render').value = s.renderMode;
+    if (s.collarColor) $('#s-collar').value = s.collarColor;
+    if (s.headphoneMode) $('#s-headphone').value = s.headphoneMode;
+    if (s.keyboardLayout) $('#s-kblayout').value = String(s.keyboardLayout);
+    if (s.keyboardOrientation) $('#s-kborient').value = s.keyboardOrientation;
+    if (s.tailKeyMode) $('#s-tailmode').value = s.tailKeyMode;
+    $('#s-tailkeys').value = Array.isArray(s.tailKeyIds) ? s.tailKeyIds.join(', ') : '';
+    $('#s-bubbles').checked = !!s.showKeyBubbles;
+    $('#s-sound').checked = !!s.soundEnabled;
+    $('#s-ontop').checked = !!s.alwaysOnTop;
+    $('#s-click').checked = !!s.clickThroughLocked;
+    $('#s-autostart').checked = !!s.autostart;
+  }
+
+  async function readSettings(){
+    if (!connected) return toast('请先连接 KuroCat', 'err');
+    try {
+      const s = await callTool('get_settings', {});
+      fillSettings(s);
+      toast('已读取最新设置');
+    } catch (e) { toast('读取设置失败：' + e.message, 'err'); }
+  }
+
+  async function applySettings(){
+    if (!connected) return toast('请先连接 KuroCat', 'err');
+    const clickThrough = $('#s-click').checked;
+    if (clickThrough && !confirm('开启「点击穿透锁定」后，桌宠将无法用鼠标点击交互。确定继续？')) return;
+
+    const payload = {
+      scale: Number($('#s-scale').value),
+      renderMode: $('#s-render').value,
+      collarColor: $('#s-collar').value,
+      headphoneMode: $('#s-headphone').value,
+      keyboardLayout: $('#s-kblayout').value,
+      keyboardOrientation: $('#s-kborient').value,
+      tailKeyMode: $('#s-tailmode').value,
+      tailKeyIds: $('#s-tailkeys').value.split(/[,，\s]+/).map(x => x.trim()).filter(Boolean),
+      showKeyBubbles: $('#s-bubbles').checked,
+      soundEnabled: $('#s-sound').checked,
+      alwaysOnTop: $('#s-ontop').checked,
+      clickThroughLocked: $('#s-click').checked,
+      autostart: $('#s-autostart').checked
+    };
+    try {
+      const res = await callTool('update_settings', payload);
+      if (res && typeof res === 'object' && res.scale != null) fillSettings(res);
+      else { try { fillSettings(await callTool('get_settings', {})); } catch {} }
+      toast('外观设置已更新');
+    } catch (e) {
+      toast('保存设置失败：' + e.message, 'err');
+    }
+  }
+
+  /* ============================================================
+     连接流程
+  ============================================================ */
+  async function connect(){
+    endpoint = (endpointInput.value.trim() || DEFAULT_ENDPOINT);
+    saveEndpoint(endpoint);
+    setStatus('connecting');
+    connected = false;
+
+    try {
+      await initSession();
+      const [catData, settings] = await Promise.all([
+        callTool('list_cats', {}),
+        callTool('get_settings', {})
+      ]);
+      cats = (catData && catData.cats) || [];
+      activeCatId = catData ? catData.activeCatId : null;
+      fillSettings(settings);
+      renderCats();
+
+      const target = cats.find(c => c.id === activeCatId) || cats[0];
+      if (target) loadIntoForm(target);
+      else clearForm();
+
+      connected = true;
+      setStatus('online', serverInfo && serverInfo.version ? 'KuroCat ' + serverInfo.version : '已连接');
+      toast('已连接 ' + (serverInfo ? serverInfo.name + ' ' + (serverInfo.version || '') : 'MCP'));
+    } catch (e) {
+      connected = false;
+      cats = [];
+      renderCats();
+      setStatus('offline');
+      console.error('[kurocat-editor] connect failed:', e);
+      toast('连接失败：' + e.message + '（请确认 KuroCat 正在运行，地址正确）', 'err');
+    }
+  }
+
+  async function refreshCats(){
+    const data = await callTool('list_cats', {});
+    cats = (data && data.cats) || [];
+    activeCatId = data ? data.activeCatId : null;
+    renderCats();
+  }
+
+  /* ============================================================
+     动作
+  ============================================================ */
+  async function saveCat(){
+    if (!connected) return toast('请先连接 KuroCat', 'err');
+    let cat;
+    try {
+      cat = validateCat(readCat());
+    } catch (e) { return toast(e.message, 'err'); }
+
+    try {
+      const activate = $('#activateChk').checked;
+      const res = await callTool('upsert_cat', { activate, cat });
+      const activated = res && res.activated;
+      toast(activated ? '已保存，桌宠已实时切换' : '已保存到猫咪列表');
+      $('#f-id').value = cat.id;
+      try { await refreshCats(); } catch {}
+      const updated = cats.find(c => c.id === cat.id);
+      if (updated) loadIntoForm(updated);
+      else { currentId = cat.id; markClean(); }
+    } catch (e) {
+      toast('保存失败：' + e.message, 'err');
+    }
+  }
+
+  async function switchTo(){
+    if (!connected) return toast('请先连接 KuroCat', 'err');
+    if (!currentId) return toast('请先从列表选择一个猫', 'err');
+    try {
+      await callTool('switch_cat', { id: currentId });
+      await refreshCats();
+      const c = cats.find(x => x.id === currentId);
+      if (c) loadIntoForm(c);
+      toast('已切换到「' + (c ? c.name : currentId) + '」');
+    } catch (e) { toast('切换失败：' + e.message, 'err'); }
+  }
+
+  async function deleteCat(){
+    if (!connected) return toast('请先连接 KuroCat', 'err');
+    if (!currentId) return toast('当前没有选中的猫', 'err');
+    const cat = cats.find(c => c.id === currentId);
+    const label = cat ? cat.name : currentId;
+    const msg = cat && cat.builtin
+      ? '「' + label + '」是内置猫，删除会把它恢复为默认外观。继续？'
+      : '确定删除「' + label + '」？此操作不可撤销。';
+    if (!confirm(msg)) return;
+    try {
+      await callTool('delete_cat', { id: currentId });
+      toast('已删除「' + label + '」');
+      const oldId = currentId;
+      currentId = null;
+      await refreshCats();
+      const target = cats.find(c => c.id === activeCatId) || cats[0];
+      if (target) loadIntoForm(target);
+      else clearForm();
+    } catch (e) { toast('删除失败：' + e.message, 'err'); }
+  }
+
+  function newCat(){
+    const base = currentId ? readCat() : {};
+    const cat = Object.assign({
+      pattern: 'solid',
+      furColor: '#8b9096',
+      emoji: '🐈',
+      spots: []
+    }, base);
+    cat.id = 'my-cat-' + Math.random().toString(36).slice(2, 6);
+    cat.name = '我的新猫';
+    cat.builtin = false;
+    loadIntoForm(cat);
+    markDirty();
+    toast('已创建新猫模板，调整后点「保存并应用」');
+  }
+
+  async function copyJson(){
+    try {
+      const cat = validateCat(readCat());
+      await navigator.clipboard.writeText(JSON.stringify(cat, null, 2));
+      toast('配置 JSON 已复制到剪贴板');
+    } catch (e) {
+      toast('复制失败：' + e.message, 'err');
+    }
+  }
+
+  /* ============================================================
+     事件绑定
+  ============================================================ */
+  function bindUI(){
+    $('#connectBtn').addEventListener('click', connect);
+    $('#refreshBtn').addEventListener('click', async () => {
+      if (!connected) return connect();
+      try {
+        await refreshCats();
+        const s = await callTool('get_settings', {});
+        fillSettings(s);
+        const target = cats.find(c => c.id === currentId) || cats.find(c => c.id === activeCatId);
+        if (target) loadIntoForm(target);
+        toast('已刷新');
+      } catch (e) { toast('刷新失败：' + e.message, 'err'); }
+    });
+    endpointInput.addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+
+    $('#newCatBtn').addEventListener('click', newCat);
+    $('#saveBtn').addEventListener('click', saveCat);
+    $('#switchBtn').addEventListener('click', switchTo);
+    $('#deleteBtn').addEventListener('click', deleteCat);
+    $('#copyBtn').addEventListener('click', copyJson);
+
+    $('#applySettingsBtn').addEventListener('click', applySettings);
+    $('#settingsReloadBtn').addEventListener('click', readSettings);
+    $('#s-scale').addEventListener('input', () => {
+      $('#s-scale-val').textContent = Number($('#s-scale').value).toFixed(2);
+    });
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+        document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab.dataset.tab));
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveCat();
+      }
+    });
+  }
+
+  /* ============================================================
+     启动
+  ============================================================ */
+  function boot(){
+    endpointInput.value = endpoint;
+    buildEditor();
+    bindUI();
+    renderPreview();
+    connect();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
