@@ -1,2 +1,2 @@
-!\[editor.png](./editor.png)
+![editor.png](./editor.png)
 
